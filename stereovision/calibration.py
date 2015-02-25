@@ -150,9 +150,11 @@ class StereoCalibrator(object):
         """Find subpixel chessboard corners in image."""
         temp = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, corners = cv2.findChessboardCorners(temp,
-                                                 (self.rows, self.columns))
+                                                 (self.rows, self.columns), flags=cv2.CALIB_CB_FAST_CHECK)
         if not ret:
             raise ChessboardNotFoundError("No chessboard could be found.")
+        else:
+            print 'Chessboard found!'
         cv2.cornerSubPix(temp, corners, (11, 11), (-1, -1),
                          (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS,
                           30, 0.01))
@@ -205,15 +207,53 @@ class StereoCalibrator(object):
         The image pair should be an iterable composed of two CvMats ordered
         (left, right).
         """
+
+        '''
+        #self.object_points.append(self.corner_coordinates)
         side = "left"
-        self.object_points.append(self.corner_coordinates)
         for image in image_pair:
-            corners = self._get_corners(image)
+            try:
+                corners = self._get_corners(image)
+            except Exception as e:
+                print 'Error in add_corners: %s' % e
+                #remove object points
+                #self.object_points.remove()
+                return
+                
             if show_results:
                 self._show_corners(image, corners)
             self.image_points[side].append(corners.reshape(-1, 2))
             side = "right"
+            #self.object_points.append(self.corner_coordinates)
             self.image_count += 1
+        
+        self.object_points.append(self.corner_coordinates)
+        
+        '''
+        try:
+            corners_l = self._get_corners(image_pair[0])
+        except Exception as e:
+            print 'Error in add_corners: %s' % e
+            return
+            
+        if show_results:
+            self._show_corners(image_pair[0], corners_l)
+        
+        try:
+            corners_r = self._get_corners(image_pair[1])
+        except Exception as e:
+            print 'Error in add_corners: %s' % e
+            return
+            
+        if show_results:
+            self._show_corners(image_pair[1], corners_r)
+        
+        self.image_points["left"].append(corners_l.reshape(-1, 2))
+        self.image_count += 1
+        self.image_points["right"].append(corners_r.reshape(-1, 2))
+        self.image_count += 1
+        self.object_points.append(self.corner_coordinates)
+        
 
     def calibrate_cameras(self):
         """Calibrate cameras based on found chessboard corners."""
@@ -222,6 +262,12 @@ class StereoCalibrator(object):
         flags = (cv2.CALIB_FIX_ASPECT_RATIO + cv2.CALIB_ZERO_TANGENT_DIST +
                  cv2.CALIB_SAME_FOCAL_LENGTH)
         calib = StereoCalibration()
+        print 'Pre calculation data check:'
+        print 'self.object_points: %s' % len(self.object_points)
+        print 'self.image_points["left"]: %s' % len(self.image_points["left"])
+        print 'self.image_points["right"]: %s' % len(self.image_points["right"])
+        print 'self.image_size: %s x %s' % (self.image_size[0], self.image_size[1])
+        
         (calib.cam_mats["left"], calib.dist_coefs["left"],
          calib.cam_mats["right"], calib.dist_coefs["right"],
          calib.rot_mat, calib.trans_vec, calib.e_mat,

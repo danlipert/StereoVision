@@ -98,6 +98,7 @@ def calibrate_folder(args):
     print("Reading input files...")
     while args.input_files:
         left, right = args.input_files[:2]
+        print 'Looking at %s, %s' % (left, right)
         img_left, im_right = cv2.imread(left), cv2.imread(right)
         calibrator.add_corners((img_left, im_right),
                                show_results=args.show_chessboards)
@@ -129,6 +130,7 @@ class BMTuner(object):
 
     #: Window to show results in
     window_name = "BM Tuner"
+    change_count = 0
 
     def _set_value(self, parameter, new_value):
         """Try setting new parameter on ``block_matcher`` and update map."""
@@ -137,6 +139,15 @@ class BMTuner(object):
         except BadBlockMatcherArgumentError:
             return
         self.update_disparity_map()
+        
+        '''
+        self.change_count = self.change_count + 1
+        print 'change count :%s' % self.change_count
+        if self.change_count == 3:
+            print 'updating disparity map'
+            self.change_count = 0
+            self.update_disparity_map()
+        '''
 
     def _initialize_trackbars(self):
         """
@@ -176,9 +187,14 @@ class BMTuner(object):
         self.bm_settings = {}
         for parameter in self.block_matcher.parameter_maxima.keys():
             self.bm_settings[parameter] = []
-        cv2.namedWindow(self.window_name)
+        cv2.namedWindow(self.window_name, flags=cv2.WINDOW_NORMAL)
         self._initialize_trackbars()
         self.tune_pair(image_pair)
+        cv2.namedWindow('left', flags=cv2.WINDOW_NORMAL)
+        cv2.namedWindow('right', flags=cv2.WINDOW_NORMAL)
+        cv2.imshow('left', image_pair[0])
+        cv2.imshow('right', image_pair[1])
+        cv2.waitKey()
 
     def update_disparity_map(self):
         """
